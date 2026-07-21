@@ -4,6 +4,7 @@ import { getPlaceDetails, searchPlaces } from "./searchService";
 import { Coordinate, RouteOption, RoutePlan, TravelPreference } from "../types/route";
 
 const ORS_BASE_URL = "https://api.openrouteservice.org";
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.trim();
 const orsApiKey = process.env.EXPO_PUBLIC_ORS_API_KEY?.trim();
 const mileage = 15;
 const fuelPrice = 100;
@@ -24,6 +25,19 @@ export type LocationSearchResult = {
 };
 
 export async function planRoutes(input: PlanInput): Promise<RoutePlan> {
+  if (BACKEND_URL) {
+    try {
+      const { data } = await axios.post(`${BACKEND_URL}/api/routes/plan`, input, { timeout: 25000 });
+      if (data?.success && data.data) {
+        return data.data;
+      }
+    } catch {
+      if (!orsApiKey) {
+        return buildMockPlan(input);
+      }
+    }
+  }
+
   if (!orsApiKey) {
     return buildMockPlan(input);
   }

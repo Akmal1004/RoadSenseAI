@@ -3,6 +3,7 @@ import { Coordinate } from "../types/route";
 import { LocationResult, PlaceDetails, PlaceSuggestion } from "../types/search";
 
 const ORS_BASE_URL = "https://api.openrouteservice.org";
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.trim();
 const apiKey = process.env.EXPO_PUBLIC_ORS_API_KEY?.trim();
 const maxSearchCacheEntries = 20;
 const searchCache = new Map<string, PlaceSuggestion[]>();
@@ -39,7 +40,6 @@ interface ORSFeature {
 }
 
 export async function searchPlaces(query: string, options: SearchOptions = {}): Promise<PlaceSuggestion[]> {
-  ensureApiKey();
   const normalizedQuery = normalizeQuery(query);
   if (normalizedQuery.length < 2) return [];
 
@@ -47,6 +47,27 @@ export async function searchPlaces(query: string, options: SearchOptions = {}): 
   const cached = searchCache.get(cacheKey);
   if (cached) return cached;
 
+  if (BACKEND_URL) {
+    try {
+      const { data } = await axios.get(`${BACKEND_URL}/api/search/places`, {
+        params: {
+          query: normalizedQuery,
+          lat: options.locationBias?.latitude,
+          lon: options.locationBias?.longitude
+        },
+        signal: options.signal,
+        timeout: 12000
+      });
+      if (data?.success && Array.isArray(data.data)) {
+        setSearchCache(cacheKey, data.data);
+        return data.data;
+      }
+    } catch (error: unknown) {
+      if (!apiKey) throw friendlySearchError(error);
+    }
+  }
+
+  ensureApiKey();
   const { data } = await axios.get(`${ORS_BASE_URL}/geocode/autocomplete`, {
     params: buildSearchParams(normalizedQuery, options.locationBias, 8),
     signal: options.signal,
@@ -74,19 +95,56 @@ export async function searchPlaces(query: string, options: SearchOptions = {}): 
 }
 
 export async function getPlaceDetails(placeId: string, signal?: AbortSignal): Promise<PlaceDetails> {
-  void signal;
   const cached = detailsCache.get(placeId);
   if (cached) return cached;
+
+  if (BACKEND_URL) {
+    try {
+      const { data } = await axios.get(`${BACKEND_URL}/api/search/details`, {
+        params: { placeId },
+        signal,
+        timeout: 12000
+      });
+      if (data?.success && data.data) {
+        detailsCache.set(placeId, data.data);
+        return data.data;
+      }
+    } catch {
+      // Fallback to error below
+    }
+  }
+
   throw new Error("Place details expired. Search for the location again.");
 }
 
 export async function searchNearbyPlaces(options: NearbyOptions): Promise<LocationResult[]> {
-  ensureApiKey();
   const normalizedQuery = normalizeQuery(options.query);
   const cacheKey = `nearby:${normalizedQuery.toLowerCase()}:${coordinateCacheKey(options.location)}`;
   const cached = searchCache.get(cacheKey);
   if (cached) return cached.map(suggestionToLocationResult);
 
+  if (BACKEND_URL) {
+    try {
+      const { data } = await axios.get(`${BACKEND_URL}/api/search/nearby`, {
+        params: {
+          query: normalizedQuery,
+          lat: options.location.latitude,
+          lon: options.location.longitude,
+          category: options.category
+        },
+        signal: options.signal,
+        timeout: 12000
+      });
+      if (data?.success && Array.isArray(data.data)) {
+        setSearchCache(cacheKey, data.data.map(locationResultToSuggestion));
+        return data.data;
+      }
+    } catch (error: unknown) {
+      if (!apiKey) throw friendlySearchError(error);
+    }
+  }
+
+  ensureApiKey();
   const { data } = await axios.get(`${ORS_BASE_URL}/geocode/search`, {
     params: buildSearchParams(normalizedQuery, options.location, 10),
     signal: options.signal,
@@ -114,11 +172,30 @@ export async function searchNearbyPlaces(options: NearbyOptions): Promise<Locati
 }
 
 export async function reverseGeocode(coordinate: Coordinate, signal?: AbortSignal): Promise<LocationResult> {
-  ensureApiKey();
   const cacheKey = coordinateCacheKey(coordinate);
   const cached = reverseGeocodeCache.get(cacheKey);
   if (cached) return cached;
 
+  if (BACKEND_URL) {
+    try {
+      const { data } = await axios.get(`${BACKEND_URL}/api/search/reverse`, {
+        params: {
+          lat: coordinate.latitude,
+          lon: coordinate.longitude
+        },
+        signal,
+        timeout: 12000
+      });
+      if (data?.success && data.data) {
+        reverseGeocodeCache.set(cacheKey, data.data);
+        return data.data;
+      }
+    } catch (error: unknown) {
+      if (!apiKey) throw friendlySearchError(error);
+    }
+  }
+
+  ensureApiKey();
   const { data } = await axios.get(`${ORS_BASE_URL}/geocode/reverse`, {
     params: {
       api_key: apiKey,

@@ -2,6 +2,7 @@ import axios from "axios";
 import { RoutePlan } from "../types/route";
 
 const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY?.trim();
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.trim();
 const model = process.env.EXPO_PUBLIC_GEMINI_MODEL?.trim() || "gemini-3.1-flash-lite";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 const GEMINI_THROTTLE_MS = 10000;
@@ -97,6 +98,34 @@ async function generateGeminiText({
   }
 
   logGeminiRequest(context, "miss");
+
+  if (BACKEND_URL) {
+    guardScope(scope);
+    const controller = new AbortController();
+    activeRequest = { scope, controller };
+    try {
+      const { data } = await axios.post(
+        `${BACKEND_URL}/api/ai/ask`,
+        { prompt, scope },
+        { signal: controller.signal, timeout: 20000 }
+      );
+      if (data?.success && data.data?.text) {
+        const response = { text: data.data.text, model: "backend", cached: false };
+        setCachedResponse(cacheKey, response);
+        return response;
+      }
+    } catch {
+      if (!apiKey) {
+        const response = { text: demoResponse(prompt), model: "demo", cached: false };
+        setCachedResponse(cacheKey, response);
+        return response;
+      }
+    } finally {
+      if (activeRequest?.controller === controller) {
+        activeRequest = null;
+      }
+    }
+  }
 
   if (!apiKey) {
     const response = { text: demoResponse(prompt), model: "demo", cached: false };
