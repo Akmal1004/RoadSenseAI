@@ -7,8 +7,6 @@ import CoPilotChat from "./components/CoPilotChat";
 import ProfileSettings from "./components/ProfileSettings";
 import { 
   Bot, 
-  Settings as SettingsIcon, 
-  LayoutDashboard, 
   Navigation, 
   ExternalLink,
   Shield, 
@@ -18,14 +16,10 @@ import {
   X,
   Sparkles,
   Map,
-  Compass,
   CloudRain,
   ChevronRight,
-  ShieldAlert,
-  Info,
   Layers,
-  Activity,
-  ArrowRight
+  Activity
 } from "lucide-react";
 import { useStats } from "./hooks/useStats";
 import gsap from "gsap";
@@ -580,10 +574,10 @@ function HomeView() {
                   key={idx}
                   className={`intel-selector-btn ${isActive ? "active" : ""}`}
                   style={{
-                    ["--active-accent-color" as any]: feature.color,
-                    ["--active-border-color" as any]: feature.borderColor,
-                    ["--active-accent-bg" as any]: feature.accentBg
-                  }}
+                    "--active-accent-color": feature.color,
+                    "--active-border-color": feature.borderColor,
+                    "--active-accent-bg": feature.accentBg
+                  } as React.CSSProperties}
                   onClick={() => {
                     setActiveFeature(idx);
                     setAutoPlay(false);
@@ -605,8 +599,8 @@ function HomeView() {
           <div 
             className="intel-diagnostics-monitor"
             style={{
-              ["--active-accent-color" as any]: featuresData[activeFeature].color
-            }}
+              "--active-accent-color": featuresData[activeFeature].color
+            } as React.CSSProperties}
           >
             <div className="intel-monitor-header">
               <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: "8px", color: "var(--text-secondary)" }}>
