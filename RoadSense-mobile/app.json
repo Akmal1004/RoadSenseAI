@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "RoadSense",
+    "slug": "roadsense",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "roadsense",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.jpg",
+    "splash": {
+        "image": "./assets/splash.jpg",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff"
+      },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#2563EB"
+      },
+      "package": "com.abishekgvincent.roadsense",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "jsEngine": "hermes",
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "@maplibre/maplibre-react-native",
+        {
+          "android": {
+            "locationEngine": "default"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
