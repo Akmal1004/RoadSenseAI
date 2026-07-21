@@ -69,6 +69,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAppState() {
   const context = useContext(AppStateContext);
   if (!context) {

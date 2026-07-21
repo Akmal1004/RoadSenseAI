@@ -46,7 +46,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
 };
 
 export default function RoutePlanner() {
-  const { routePlan, preferences: userPreferences } = useAppState();
+  const { preferences: userPreferences } = useAppState();
   const { plan, loading, error: planningError } = useRoutes();
 
   const [source, setSource] = useState("");

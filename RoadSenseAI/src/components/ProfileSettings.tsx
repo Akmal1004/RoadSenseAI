@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Save, Info, Car, Fuel, Eye } from "lucide-react";
+import { Save, Info, Car, Fuel } from "lucide-react";
 import { useAppState } from "../context/AppStateContext";
 import { TravelPreference } from "../types/route";
 

@@ -137,7 +137,7 @@ async function generateGeminiText({
   }
 }
 
-function guardScope(scope: GeminiScope) {
+function guardScope(_scope: GeminiScope) {
   if (activeRequest) {
     throw new AIServiceError("AI is already working on that request.", "throttled");
   }
@@ -150,7 +150,7 @@ function guardScope(scope: GeminiScope) {
   lastNetworkRequestAt = now;
 }
 
-function normalizeGeminiError(error: any): AIServiceError {
+function normalizeGeminiError(error: unknown): AIServiceError {
   if (axios.isCancel(error)) {
     return new AIServiceError("AI request was cancelled.", "unavailable");
   }

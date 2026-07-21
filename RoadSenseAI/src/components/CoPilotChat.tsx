@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, Trash2, HelpCircle, Sparkles } from "lucide-react";
+import { Send, Bot, Trash2, Sparkles } from "lucide-react";
 import { askRoadSenseAI, cancelGeminiRequest } from "../services/aiService";
 import { ChatMessage } from "../types/chat";
 

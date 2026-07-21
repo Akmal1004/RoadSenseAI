@@ -9,8 +9,7 @@ import {
   Wind, 
   Eye, 
   AlertTriangle, 
-  Compass, 
-  Info 
+  Compass 
 } from "lucide-react";
 import { useAppState } from "../context/AppStateContext";
 import { useStats } from "../hooks/useStats";

@@ -41,7 +41,7 @@ export async function planRoutes(input: PlanInput): Promise<RoutePlan> {
       destinationCoordinate,
       routes
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (axios.isAxiosError(error) && !error.response) {
       throw new Error("No internet connection. Please check your network.");
     }
