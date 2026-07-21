@@ -21,6 +21,23 @@ type NearbyOptions = {
   signal?: AbortSignal;
 };
 
+interface ORSFeature {
+  geometry?: {
+    coordinates?: number[];
+  };
+  properties?: {
+    id?: string;
+    name?: string;
+    label?: string;
+    locality?: string;
+    region?: string;
+    country?: string;
+    category?: string;
+    layer?: string;
+    confidence?: number;
+  };
+}
+
 export async function searchPlaces(query: string, options: SearchOptions = {}): Promise<PlaceSuggestion[]> {
   ensureApiKey();
   const normalizedQuery = normalizeQuery(query);
@@ -34,11 +51,11 @@ export async function searchPlaces(query: string, options: SearchOptions = {}): 
     params: buildSearchParams(normalizedQuery, options.locationBias, 8),
     signal: options.signal,
     timeout: 12000
-  }).catch((error: any) => {
+  }).catch((error: unknown) => {
     throw friendlySearchError(error);
   });
 
-  const suggestions = rankFeatures(data.features ?? [], normalizedQuery, options.locationBias).map((feature): PlaceSuggestion => {
+  const suggestions = rankFeatures((data.features as ORSFeature[]) ?? [], normalizedQuery, options.locationBias).map((feature): PlaceSuggestion => {
     const details = featureToPlaceDetails(feature, options.locationBias);
     detailsCache.set(details.placeId, details);
     return {
@@ -56,7 +73,8 @@ export async function searchPlaces(query: string, options: SearchOptions = {}): 
   return suggestions;
 }
 
-export async function getPlaceDetails(placeId: string, _signal?: AbortSignal): Promise<PlaceDetails> {
+export async function getPlaceDetails(placeId: string, signal?: AbortSignal): Promise<PlaceDetails> {
+  void signal;
   const cached = detailsCache.get(placeId);
   if (cached) return cached;
   throw new Error("Place details expired. Search for the location again.");
@@ -73,11 +91,11 @@ export async function searchNearbyPlaces(options: NearbyOptions): Promise<Locati
     params: buildSearchParams(normalizedQuery, options.location, 10),
     signal: options.signal,
     timeout: 12000
-  }).catch((error: any) => {
+  }).catch((error: unknown) => {
     throw friendlySearchError(error);
   });
 
-  const results = rankFeatures(data.features ?? [], normalizedQuery, options.location).map((feature): LocationResult => {
+  const results = rankFeatures((data.features as ORSFeature[]) ?? [], normalizedQuery, options.location).map((feature): LocationResult => {
     const details = featureToPlaceDetails(feature, options.location);
     detailsCache.set(details.placeId, details);
     return {
@@ -110,11 +128,11 @@ export async function reverseGeocode(coordinate: Coordinate, signal?: AbortSigna
     },
     signal,
     timeout: 12000
-  }).catch((error: any) => {
+  }).catch((error: unknown) => {
     throw friendlySearchError(error);
   });
 
-  const feature = data.features?.[0];
+  const feature = (data.features as ORSFeature[])?.[0];
   const label = feature?.properties?.label ?? `${coordinate.latitude.toFixed(6)},${coordinate.longitude.toFixed(6)}`;
   const result: LocationResult = {
     id: feature?.properties?.id ?? cacheKey,
@@ -145,7 +163,7 @@ function buildSearchParams(query: string, locationBias: Coordinate | null | unde
   return params;
 }
 
-function featureToPlaceDetails(feature: any, origin?: Coordinate | null): PlaceDetails {
+function featureToPlaceDetails(feature: ORSFeature, origin?: Coordinate | null): PlaceDetails {
   const coordinates = feature.geometry?.coordinates;
   if (!Array.isArray(coordinates)) {
     throw new Error("This place does not include map coordinates. Try another result.");
@@ -167,11 +185,11 @@ function featureToPlaceDetails(feature: any, origin?: Coordinate | null): PlaceD
   };
 }
 
-function rankFeatures(features: any[], query: string, origin?: Coordinate | null): any[] {
+function rankFeatures(features: ORSFeature[], query: string, origin?: Coordinate | null): ORSFeature[] {
   return [...features].sort((a, b) => scoreFeature(b, query, origin) - scoreFeature(a, query, origin));
 }
 
-function scoreFeature(feature: any, query: string, origin?: Coordinate | null): number {
+function scoreFeature(feature: ORSFeature, query: string, origin?: Coordinate | null): number {
   const properties = feature.properties ?? {};
   const label = `${properties.name ?? ""} ${properties.label ?? ""}`.toLowerCase();
   const normalizedQuery = query.toLowerCase();
@@ -181,7 +199,7 @@ function scoreFeature(feature: any, query: string, origin?: Coordinate | null): 
   if (label.startsWith(normalizedQuery)) score += 80;
   if (label.includes(normalizedQuery)) score += 45;
   if (/(airport|railway|station|hospital|college|university|metro|bus stand|landmark)/i.test(label)) score += 24;
-  if (["locality", "region", "county", "macrocounty"].includes(properties.layer)) score += 18;
+  if (properties.layer && ["locality", "region", "county", "macrocounty"].includes(properties.layer)) score += 18;
 
   const coordinates = feature.geometry?.coordinates;
   if (origin && Array.isArray(coordinates)) {
@@ -192,7 +210,7 @@ function scoreFeature(feature: any, query: string, origin?: Coordinate | null): 
   return score;
 }
 
-function categoryFromFeature(feature: any): string | undefined {
+function categoryFromFeature(feature?: ORSFeature): string | undefined {
   const properties = feature?.properties;
   return properties?.category ?? properties?.layer;
 }
@@ -236,7 +254,7 @@ function ensureApiKey() {
   }
 }
 
-function friendlySearchError(error: any): Error {
+function friendlySearchError(error: unknown): Error {
   if (axios.isCancel(error)) {
     return new Error("Search was cancelled.");
   }

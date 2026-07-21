@@ -41,11 +41,11 @@ export async function planRoutes(input: PlanInput): Promise<RoutePlan> {
       destinationCoordinate,
       routes
     };
-  } catch (error) {
+  } catch (error: unknown) {
     if (axios.isAxiosError(error) && !error.response) {
-      throw new Error("No internet connection. Please check your network.");
+      throw new Error("No internet connection. Please check your network.", { cause: error });
     }
-    throw new Error(error instanceof Error ? error.message : "Routes unavailable. Please try again.");
+    throw new Error(error instanceof Error ? error.message : "Routes unavailable. Please try again.", { cause: error });
   }
 }
 
@@ -89,12 +89,28 @@ async function geocodeSource(location: string): Promise<Coordinate> {
   return geocode(location);
 }
 
+interface ORSDirectionsFeature {
+  properties: {
+    summary: {
+      distance: number;
+      duration: number;
+    };
+  };
+  geometry: {
+    coordinates: number[][];
+  };
+}
+
+interface ORSDirectionsResponse {
+  features?: ORSDirectionsFeature[];
+}
+
 async function directions(
   source: Coordinate,
   destination: Coordinate,
   preference: TravelPreference
 ): Promise<RouteOption[]> {
-  const data = await requestDirections(source, destination, true).catch(async (error) => {
+  const data = await requestDirections(source, destination, true).catch(async (error: unknown) => {
     if (axios.isAxiosError(error) && error.response?.status === 400) {
       return requestDirections(source, destination, false);
     }
@@ -117,10 +133,7 @@ async function directions(
     score?: number;
   };
 
-  // ORS returns alternative routes as "features". We derive our internal
-  // RoadSense metrics from ORS geometry summaries and then *assign* the
-  // categories (safest/fastest/eco) based on those metrics.
-  const candidates: Candidate[] = features.map((feature: any) => {
+  const candidates: Candidate[] = features.map((feature: ORSDirectionsFeature) => {
     const summary = feature.properties.summary;
     const distance = Number(summary.distance);
     const eta = Number(summary.duration) / 60;
@@ -137,15 +150,12 @@ async function directions(
     };
   });
 
-  // Compute safety score so that "Safest Route" tends to be slower/longer
-  // than "Fastest Route" (matches the expected UX).
   const etaSorted = [...candidates].sort((a, b) => a.eta - b.eta); // fastest first
   const n = candidates.length;
 
   for (const candidate of candidates) {
-    const etaRankFast = etaSorted.indexOf(candidate); // 0..n-1
-    const slowRank = (n - 1) - etaRankFast; // 0 for slowest, n-1 for fastest
-    // slowRank: 0 => safest (highest), larger => less safe.
+    const etaRankFast = etaSorted.indexOf(candidate);
+    const slowRank = (n - 1) - etaRankFast;
     const safety = Math.max(78, 96 - slowRank * 6);
     const traffic = Math.max(72, 94 - candidate.eta / 2);
     const fuel = Math.max(70, 100 - candidate.fuelUsage * 8);
@@ -187,7 +197,6 @@ async function directions(
     };
   }
 
-  // Always return 3 categorized routes for consistent UI.
   const order: Array<TravelPreference> =
     preference === "safest" ? ["safest", "fastest", "eco"] : preference === "fastest" ? ["fastest", "safest", "eco"] : ["eco", "safest", "fastest"];
 
@@ -198,7 +207,7 @@ async function requestDirections(
   source: Coordinate,
   destination: Coordinate,
   alternatives: boolean
-): Promise<any> {
+): Promise<ORSDirectionsResponse> {
   const body: Record<string, unknown> = {
     coordinates: [
       [source.longitude, source.latitude],
@@ -212,7 +221,7 @@ async function requestDirections(
     body.alternative_routes = { target_count: 3, weight_factor: 1.6, share_factor: 0.6 };
   }
 
-  const { data } = await axios.post(
+  const { data } = await axios.post<ORSDirectionsResponse>(
     `${ORS_BASE_URL}/v2/directions/driving-car/geojson`,
     body,
     {

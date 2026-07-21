@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { 
   Search, 
   MapPin, 
@@ -79,7 +79,9 @@ export default function RoutePlanner() {
 
   // Sync preference with global defaults when settings update
   useEffect(() => {
-    setPreference(userPreferences.defaultRouteType);
+    queueMicrotask(() => {
+      setPreference(userPreferences.defaultRouteType);
+    });
   }, [userPreferences.defaultRouteType]);
 
   // Load history and favorites on mount
@@ -106,33 +108,7 @@ export default function RoutePlanner() {
     setFavoriteLocations(favs);
   }
 
-  // Autocomplete logic for the active input field
-  useEffect(() => {
-    if (!activeField) return;
-
-    const query = activeField === "source" ? source : destination;
-    const coordinate = activeField === "source" ? sourceCoordinate : destinationCoordinate;
-    const normalizedQuery = query.trim().replace(/\s+/g, " ");
-
-    if (suppressNextSearchRef.current) {
-      suppressNextSearchRef.current = false;
-      return;
-    }
-    if (coordinate || normalizedQuery.length < 2) {
-      searchAbortRef.current?.abort();
-      setSuggestions([]);
-      setSearchError(null);
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      searchLocation(normalizedQuery, activeField === "source");
-    }, 500);
-
-    return () => clearTimeout(timeout);
-  }, [source, destination, activeField, sourceCoordinate, destinationCoordinate]);
-
-  async function resolveLocationBias(): Promise<Coordinate> {
+  const resolveLocationBias = useCallback(async (): Promise<Coordinate> => {
     if (currentLocation) return currentLocation;
     try {
       const coord = await getCurrentLocation();
@@ -145,9 +121,9 @@ export default function RoutePlanner() {
       setLocationNotice(err instanceof Error ? err.message : "Location permissions denied.");
       return fallback;
     }
-  }
+  }, [currentLocation]);
 
-  async function searchLocation(query: string, isSource: boolean) {
+  const searchLocation = useCallback(async (query: string, isSource: boolean) => {
     searchAbortRef.current?.abort();
     const controller = new AbortController();
     searchAbortRef.current = controller;
@@ -170,7 +146,35 @@ export default function RoutePlanner() {
     } finally {
       if (!controller.signal.aborted) setSearchLoading(false);
     }
-  }
+  }, [resolveLocationBias]);
+
+  // Autocomplete logic for the active input field
+  useEffect(() => {
+    if (!activeField) return;
+
+    const query = activeField === "source" ? source : destination;
+    const coordinate = activeField === "source" ? sourceCoordinate : destinationCoordinate;
+    const normalizedQuery = query.trim().replace(/\s+/g, " ");
+
+    if (suppressNextSearchRef.current) {
+      suppressNextSearchRef.current = false;
+      return;
+    }
+    if (coordinate || normalizedQuery.length < 2) {
+      searchAbortRef.current?.abort();
+      queueMicrotask(() => {
+        setSuggestions([]);
+        setSearchError(null);
+      });
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      searchLocation(normalizedQuery, activeField === "source");
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [source, destination, activeField, sourceCoordinate, destinationCoordinate, searchLocation]);
 
   async function planSelectedDestination(details: PlaceDetails | LocationResult) {
     suppressNextSearchRef.current = true;

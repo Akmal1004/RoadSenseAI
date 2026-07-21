@@ -999,11 +999,13 @@ function MainAppContent() {
 
   // Auto-select first route when a new plan is loaded
   useEffect(() => {
-    if (routePlan?.routes && routePlan.routes.length > 0) {
-      setSelectedRouteId(routePlan.routes[0].id);
-    } else {
-      setSelectedRouteId(null);
-    }
+    queueMicrotask(() => {
+      if (routePlan?.routes && routePlan.routes.length > 0) {
+        setSelectedRouteId(routePlan.routes[0].id);
+      } else {
+        setSelectedRouteId(null);
+      }
+    });
   }, [routePlan]);
 
   const selectedRoute = routePlan?.routes.find((r) => r.id === selectedRouteId) || routePlan?.routes[0] || null;

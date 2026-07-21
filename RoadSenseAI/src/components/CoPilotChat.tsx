@@ -3,6 +3,8 @@ import { Send, Bot, Trash2, Sparkles } from "lucide-react";
 import { askRoadSenseAI, cancelGeminiRequest } from "../services/aiService";
 import { ChatMessage } from "../types/chat";
 
+const getNow = () => Date.now();
+
 const defaultPrompts = [
   "Safest route home avoiding highways",
   "Traffic on my commute",
@@ -14,7 +16,7 @@ const defaultPrompts = [
 const welcomeMessage: ChatMessage = {
   id: "welcome",
   role: "assistant",
-  createdAt: Date.now(),
+  createdAt: getNow(),
   content: "Hi! I'm your RoadSense AI co-pilot. I can help with route planning, traffic updates, weather impact, fuel savings, and general safety recommendations."
 };
 
@@ -39,11 +41,12 @@ export default function CoPilotChat() {
   async function handleSend(text = input) {
     if (!text.trim() || loading) return;
 
+    const timestamp = getNow();
     const userMsg: ChatMessage = {
-      id: `${Date.now()}-u`,
+      id: `${timestamp}-u`,
       role: "user",
       content: text.trim(),
-      createdAt: Date.now()
+      createdAt: timestamp
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -52,19 +55,21 @@ export default function CoPilotChat() {
 
     try {
       const response = await askRoadSenseAI(text.trim());
+      const replyTimestamp = getNow();
       const replyMsg: ChatMessage = {
-        id: `${Date.now()}-a`,
+        id: `${replyTimestamp}-a`,
         role: "assistant",
         content: response,
-        createdAt: Date.now()
+        createdAt: replyTimestamp
       };
       setMessages((prev) => [...prev, replyMsg]);
     } catch (error) {
+      const errTimestamp = getNow();
       const errMsg: ChatMessage = {
-        id: `${Date.now()}-e`,
+        id: `${errTimestamp}-e`,
         role: "assistant",
         content: error instanceof Error ? error.message : "AI Co-Pilot is currently unavailable.",
-        createdAt: Date.now()
+        createdAt: errTimestamp
       };
       setMessages((prev) => [...prev, errMsg]);
     } finally {

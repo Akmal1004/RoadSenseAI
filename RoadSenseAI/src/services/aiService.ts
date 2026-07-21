@@ -104,7 +104,7 @@ async function generateGeminiText({
     return response;
   }
 
-  guardScope(scope);
+  guardScope();
   const controller = new AbortController();
   activeRequest = { scope, controller };
 
@@ -137,7 +137,7 @@ async function generateGeminiText({
   }
 }
 
-function guardScope(_scope: GeminiScope) {
+function guardScope() {
   if (activeRequest) {
     throw new AIServiceError("AI is already working on that request.", "throttled");
   }

@@ -16,10 +16,12 @@ export default function ProfileSettings() {
 
   // Sync state with global preferences
   useEffect(() => {
-    setMileage(String(preferences.vehicleMileage));
-    setFuelPrice(String(preferences.fuelPrice));
-    setRouteType(preferences.defaultRouteType);
-    setUnits(preferences.units);
+    queueMicrotask(() => {
+      setMileage(String(preferences.vehicleMileage));
+      setFuelPrice(String(preferences.fuelPrice));
+      setRouteType(preferences.defaultRouteType);
+      setUnits(preferences.units);
+    });
   }, [preferences]);
 
   async function handleSave() {

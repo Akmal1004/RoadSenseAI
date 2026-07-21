@@ -43,9 +43,9 @@ export async function planRoutes(input: PlanInput): Promise<RoutePlan> {
     };
   } catch (error: unknown) {
     if (axios.isAxiosError(error) && !error.response) {
-      throw new Error("No internet connection. Please check your network.");
+      throw new Error("No internet connection. Please check your network.", { cause: error });
     }
-    throw new Error(error instanceof Error ? error.message : "Routes unavailable. Please try again.");
+    throw new Error(error instanceof Error ? error.message : "Routes unavailable. Please try again.", { cause: error });
   }
 }
 
@@ -89,12 +89,28 @@ async function geocodeSource(location: string): Promise<Coordinate> {
   return geocode(location);
 }
 
+interface ORSDirectionsFeature {
+  properties: {
+    summary: {
+      distance: number;
+      duration: number;
+    };
+  };
+  geometry: {
+    coordinates: number[][];
+  };
+}
+
+interface ORSDirectionsResponse {
+  features?: ORSDirectionsFeature[];
+}
+
 async function directions(
   source: Coordinate,
   destination: Coordinate,
   preference: TravelPreference
 ): Promise<RouteOption[]> {
-  const data = await requestDirections(source, destination, true).catch(async (error: any) => {
+  const data = await requestDirections(source, destination, true).catch(async (error: unknown) => {
     if (axios.isAxiosError(error) && error.response?.status === 400) {
       return requestDirections(source, destination, false);
     }
@@ -117,7 +133,7 @@ async function directions(
     score?: number;
   };
 
-  const candidates: Candidate[] = features.map((feature: any) => {
+  const candidates: Candidate[] = features.map((feature: ORSDirectionsFeature) => {
     const summary = feature.properties.summary;
     const distance = Number(summary.distance);
     const eta = Number(summary.duration) / 60;
@@ -191,7 +207,7 @@ async function requestDirections(
   source: Coordinate,
   destination: Coordinate,
   alternatives: boolean
-): Promise<any> {
+): Promise<ORSDirectionsResponse> {
   const body: Record<string, unknown> = {
     coordinates: [
       [source.longitude, source.latitude],
@@ -205,7 +221,7 @@ async function requestDirections(
     body.alternative_routes = { target_count: 3, weight_factor: 1.6, share_factor: 0.6 };
   }
 
-  const { data } = await axios.post(
+  const { data } = await axios.post<ORSDirectionsResponse>(
     `${ORS_BASE_URL}/v2/directions/driving-car/geojson`,
     body,
     {
